@@ -8,7 +8,17 @@ function saveImagePlugin() {
   return {
     name: 'save-image-plugin',
     configureServer(server) {
+      let count = 0
       server.middlewares.use(async (req, res, next) => {
+        if (count >= 5) {
+          count = 0
+          const picDir = path.resolve(process.cwd(), 'src/pic')
+          if (fs.existsSync(picDir)) {
+            fs.readdirSync(picDir).forEach(file => {
+              fs.unlinkSync(path.join(picDir, file))
+            })
+          }
+        }
         if (req.url === '/api/save-pic' && req.method === 'POST') {
           let body = ''
           req.on('data', chunk => {
@@ -24,7 +34,7 @@ function saveImagePlugin() {
               if (!fs.existsSync(picDir)) {
                 fs.mkdirSync(picDir, { recursive: true })
               }
-              const filename = `photo_${Date.now()}.png`
+              const filename = `${count++}.png`
               fs.writeFileSync(path.join(picDir, filename), buffer)
               
               res.setHeader('Content-Type', 'application/json')
