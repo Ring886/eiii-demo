@@ -10,6 +10,20 @@
         {{ isCapturing ? `正在拍照 (${capturedCount}/5)...` : '开始拍照' }}
       </button>
     </div>
+  <div class="status">
+    <div class="status-title">脚本运行状态</div>
+    <div class="status-array">{{ runStatusesText }}</div>
+    <div class="status-list">
+      <div 
+        v-for="i in 5" 
+        :key="i" 
+        class="status-item" 
+        :class="statusClass(i - 1)"
+      >
+        {{ displayStatus(i - 1) }}
+      </div>
+    </div>
+  </div>
     <video ref="videoRef" autoplay playsinline style="display: none;"></video>
     <canvas ref="canvasRef" style="display: none;"></canvas>
     <div class="gallery">
@@ -22,15 +36,42 @@
 </template>
 
 <script setup>
-import { ref, onUnmounted } from 'vue';
+import { ref, onUnmounted, computed } from 'vue';
 
 const videoRef = ref(null);
 const canvasRef = ref(null);
 const isCapturing = ref(false);
 const capturedCount = ref(0);
 const photos = ref([]);
+const runStatuses = ref([]);
 let mediaStream = null;
 let captureInterval = null;
+const runStatusesText = computed(() => {
+  const arr = Array.from({ length: 5 }, (_, idx) => {
+    const v = runStatuses.value[idx];
+    if (v && typeof v === 'object') {
+      const t = typeof v.time === 'number' ? v.time : '-';
+      const s = v.state === 0 || v.state === 1 ? v.state : '-';
+      return `{time:${t}, state:${s}}`;
+    }
+    return '-';
+  });
+  return `[${arr.join(', ')}]`;
+});
+const displayStatus = (idx) => {
+  const v = runStatuses.value[idx];
+  const s = v && typeof v === 'object' ? v.state : undefined;
+  if (s === 1) return '1';
+  if (s === 0) return '0';
+  return '-';
+};
+const statusClass = (idx) => {
+  const v = runStatuses.value[idx];
+  const s = v && typeof v === 'object' ? v.state : undefined;
+  if (s === 1) return 'ok';
+  if (s === 0) return 'fail';
+  return 'pending';
+};
 
 const stopCamera = () => {
   if (mediaStream) {
@@ -50,18 +91,30 @@ const startCameraAndCapture = async () => {
         resolve();
       };
     });
+    await new Promise(resolve => {
+      if (videoRef.value.readyState >= 3) {
+        resolve();
+      } else {
+        videoRef.value.addEventListener('canplay', resolve, { once: true });
+      }
+    });
     isCapturing.value = true;
     capturedCount.value = 0;
     photos.value = [];
-    captureInterval = setInterval(() => {
+    runStatuses.value = [];
+    setTimeout(() => {
       takeSnapshot();
       capturedCount.value++;
-      if (capturedCount.value >= 5) {
-        clearInterval(captureInterval);
-        isCapturing.value = false;
-        stopCamera();
-      }
-    }, 1000);
+      captureInterval = setInterval(() => {
+        takeSnapshot();
+        capturedCount.value++;
+        if (capturedCount.value >= 5) {
+          clearInterval(captureInterval);
+          isCapturing.value = false;
+          stopCamera();
+        }
+      }, 1000);
+    }, 300);
   } catch (error) {
     console.error('无法访问摄像头:', error);
     alert('无法访问摄像头，请确保已授予权限。');
@@ -79,11 +132,15 @@ const takeSnapshot = async () => {
   const imageDataUrl = canvas.toDataURL('image/png');
   photos.value.push({ url: imageDataUrl });
   try {
-    await fetch('/api/save-pic', {
+    const resp = await fetch('/api/save-pic', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: imageDataUrl })
     });
+    const json = await resp.json();
+    if (json && Array.isArray(json.runStatuses)) {
+      runStatuses.value = json.runStatuses;
+    }
   } catch (error) {
     console.error('保存照片失败:', error);
   }
@@ -116,6 +173,52 @@ h1 {
 }
 .controls {
   margin-bottom: 3.5rem;
+}
+.status {
+  margin: 2rem 0;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.status-title {
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #1a202c;
+}
+.status-array {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  margin-bottom: 0.75rem;
+  color: #2d3748;
+}
+.status-list {
+  display: grid;
+  grid-template-columns: repeat(5, 48px);
+  gap: 0.5rem;
+}
+.status-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  border-radius: 8px;
+  font-weight: 700;
+  border: 1px solid #e2e8f0;
+}
+.status-item.ok {
+  background: #def7ec;
+  color: #03543f;
+  border-color: #84e1bc;
+}
+.status-item.fail {
+  background: #fde8e8;
+  color: #9b1c1c;
+  border-color: #f8b4b4;
+}
+.status-item.pending {
+  background: #edf2f7;
+  color: #4a5568;
+  border-color: #e2e8f0;
 }
 .capture-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
