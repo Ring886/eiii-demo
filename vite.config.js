@@ -54,6 +54,7 @@ function saveImagePlugin() {
               if (!fs.existsSync(picDir)) {
                 fs.mkdirSync(picDir, { recursive: true })
               }
+              const idx = count
               const filename = `${count++}.png`
               fs.writeFileSync(path.join(picDir, filename), buffer)
               
@@ -75,9 +76,9 @@ function saveImagePlugin() {
                 }
               })
               runScript().then((ok) => {
-                runStatuses.push({ time: capturedAt, state: ok ? 1 : 0 })
+                runStatuses[idx] = { time: capturedAt, state: ok ? 1 : 0 }
                 res.setHeader('Content-Type', 'application/json')
-                res.end(JSON.stringify({ success: true, filename, runStatuses }))
+                res.end(JSON.stringify({ success: true, filename, idx, runStatuses }))
               })
             } catch (err) {
               res.statusCode = 500

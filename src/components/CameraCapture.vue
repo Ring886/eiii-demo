@@ -176,7 +176,11 @@ const takeSnapshot = async () => {
     });
     const json = await resp.json();
     if (json && Array.isArray(json.runStatuses)) {
-      runStatuses.value = json.runStatuses;
+      if (typeof json.idx === 'number' && json.runStatuses[json.idx]) {
+        runStatuses.value[json.idx] = json.runStatuses[json.idx];
+      } else {
+        runStatuses.value = json.runStatuses;
+      }
     }
   } catch (error) {
     console.error('保存照片失败:', error);
