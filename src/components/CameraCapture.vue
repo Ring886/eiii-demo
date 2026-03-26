@@ -117,6 +117,9 @@ const stopCamera = () => {
 const startCameraAndCapture = async () => {
   if (isCapturing.value) return;
   try {
+    try {
+      await fetch('/api/clear-results', { method: 'POST' });
+    } catch (_) {}
     mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
     videoRef.value.srcObject = mediaStream;
     await new Promise(resolve => {

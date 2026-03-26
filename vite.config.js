@@ -22,7 +22,24 @@ function saveImagePlugin() {
           }
           runStatuses = []
         }
-        if (req.url === '/api/save-pic' && req.method === 'POST') {
+        if (req.url === '/api/clear-results' && req.method === 'POST') {
+          try {
+            const resultDir = path.resolve(process.cwd(), 'src/result_dir')
+            if (fs.existsSync(resultDir)) {
+              fs.readdirSync(resultDir).forEach(file => {
+                fs.unlinkSync(path.join(resultDir, file))
+              })
+            } else {
+              fs.mkdirSync(resultDir, { recursive: true })
+            }
+            runStatuses = []
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ success: true }))
+          } catch (err) {
+            res.statusCode = 500
+            res.end(JSON.stringify({ success: false, error: err.message }))
+          }
+        } else if (req.url === '/api/save-pic' && req.method === 'POST') {
           let body = ''
           req.on('data', chunk => {
             body += chunk.toString()
