@@ -200,6 +200,8 @@ onUnmounted(() => {
   text-align: center;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   color: #333;
+  overflow: auto;
+  background: #ffffff;
 }
 h1 {
   font-size: 2.2rem;
