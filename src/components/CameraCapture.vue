@@ -24,6 +24,7 @@
       </div>
     </div>
   </div>
+  <div ref="chartRef" class="chart"></div>
     <video ref="videoRef" autoplay playsinline style="display: none;"></video>
     <canvas ref="canvasRef" style="display: none;"></canvas>
     <div class="gallery">
@@ -36,7 +37,8 @@
 </template>
 
 <script setup>
-import { ref, onUnmounted, computed } from 'vue';
+import { ref, onUnmounted, computed, onMounted, watch } from 'vue';
+import * as echarts from 'echarts';
 
 const videoRef = ref(null);
 const canvasRef = ref(null);
@@ -72,6 +74,38 @@ const statusClass = (idx) => {
   if (s === 0) return 'fail';
   return 'pending';
 };
+
+const chartRef = ref(null);
+let chartInst = null;
+const fmtTime = (ts) => {
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+};
+const updateChart = () => {
+  if (!chartInst) return;
+  const items = runStatuses.value.filter(v => v && typeof v === 'object' && (v.state === 0 || v.state === 1));
+  const categories = items.map(v => fmtTime(v.time));
+  const data = items.map(v => String(v.state));
+  const option = {
+    title: { text: '状态折线图' },
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: categories },
+    yAxis: { type: 'category', data: ['0', '1'] },
+    series: [{ type: 'line', data, smooth: false, step: true }]
+  };
+  chartInst.setOption(option);
+};
+onMounted(() => {
+  if (chartRef.value) {
+    chartInst = echarts.init(chartRef.value);
+    updateChart();
+    window.addEventListener('resize', () => chartInst && chartInst.resize());
+  }
+});
+watch(runStatuses, () => updateChart(), { deep: true });
 
 const stopCamera = () => {
   if (mediaStream) {
@@ -151,6 +185,10 @@ onUnmounted(() => {
   if (captureInterval) {
     clearInterval(captureInterval);
   }
+  if (chartInst) {
+    chartInst.dispose();
+    chartInst = null;
+  }
 });
 </script>
 
@@ -173,6 +211,14 @@ h1 {
 }
 .controls {
   margin-bottom: 3.5rem;
+}
+.chart {
+  width: 100%;
+  height: 300px;
+  margin: 1rem 0 2rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
 }
 .status {
   margin: 2rem 0;
